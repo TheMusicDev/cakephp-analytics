@@ -1,114 +1,83 @@
 # Analytics plugin: design of record
 
-> **Status: designed 2026-10-03, not built. D2 is under review** (research on the IAB fee and the legal
-> concerns of a home-made banner: `TheMusicDev/cakephp-conventions`, `docs/analytics-discussion.md`; the
-> recommendation there is a provider seam, see D12). Decisions below are agreed; the three questions at the end
-> are the only things left to settle before building. Package name when built:
-> `themusicdev/cakephp-analytics`, namespace `TheMusicDev\Analytics`.
+> **Status: designed (revised 2026-10-03), not built.** Package when built: `themusicdev/cakephp-analytics`,
+> namespace `TheMusicDev\Analytics`. This revision replaces the first design (a self-built consent banner,
+> then a "consent provider" abstraction): the maintainer decided on 2026-10-03 that v1 has **no custom consent
+> code and no consent logic**.
 
 ## 1. Goal
 
-Every TheMusicDev site that uses Google Analytics gets the same two things from one plugin, instead of a
-pasted snippet:
-
-1. the **GA4 tag**, on production hosts only;
-2. a **consent banner** that makes sure **no analytics cookie is set, and no data is sent to Google, until the
-   visitor accepts**, and that lets them change their mind later.
+Put the tracking tags and any other third-party scripts a site needs onto its pages, **on production hosts only**,
+configured in one place, in the right order. That is all.
 
 ## 2. Decisions
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | **Ask every visitor**, on every site; nothing is sent until they accept. | EU/UK law requires prior consent for analytics cookies; several US states require notice and opt-out; a site can have visitors from anywhere. One behaviour, no guessing where a visitor is. Cost: visitors who ignore or decline are not counted. (2026-10-03) |
-| D2 *(under review)* | **Build our own small banner** inside the plugin as the free default; no paid vendor. | The page only has to tell Google "denied" at load and "granted" on accept. A library we do not maintain is a risk we do not need, and the one candidate looked unmaintained. (2026-10-03) |
-| D3 | **"Basic" Consent Mode v2:** `gtag.js` is not even loaded until the visitor accepts. | The "advanced" mode loads the script immediately and sends cookieless pings to Google while consent is denied; some regulators object to that. Basic mode sends nothing. Cost: no modelled conversions for non-consenting visitors, which we do not want anyway. |
-| D4 | **Client-side only.** The server never reads the consent cookie to decide what HTML to render. | These sites sit behind a CDN and opcache: pages must be identical for everyone to be cacheable. |
-| D5 | **GA4 only in v1.** The tag is produced by one helper method so another provider can be added later as another class. | No abstraction for a second provider nobody has asked for. The plugin is named `Analytics`, not `GoogleAnalytics`, so renaming is not needed later. |
-| D6 | **One consent category** ("analytics") now; categories are config, so adding "marketing" later is a config change plus banner text. | Only GA is planned. |
-| D7 | **A banner nobody answers means "denied".** It stays visible as a bar at the bottom of the page, not a wall that blocks the content. | Ignoring is not consent; a blocking overlay is hostile and unnecessary. |
-| D8 | **The banner script is inline in the element, not a plugin asset.** | A plugin's `webroot` is served through a symlink (`bin/cake plugin assets symlink`), which is fragile on shared hosting; an inline script has no path to get wrong. |
-| D9 | **Nothing renders unless configured:** no measurement ID, or a host not in `Analytics.hosts`, produces no tag and no banner. | Staging (`<client>.tmdapps.dev`) and local development must never send hits or show a banner; same idea as `Seo.robots.allowHosts`. |
-| D10 | **The measurement ID is not hard-coded:** the host reads it from the environment (`env('GA_MEASUREMENT_ID')`) into `Analytics.ga.measurementId`. | It is not secret, but it differs per environment, and the `.env` is the agreed place for per-environment values. |
-| D12 *(proposed)* | **The banner is a pluggable "consent provider".** `builtin` (our minimal banner, the default) or `external` (a third-party platform's script snippet, chosen and paid for by the client, for sites that need a Google-certified platform, e.g. serving Google ads in the EEA/UK/CH). The plugin still owns host gating, tag order, the Consent Mode defaults and the GA tag. | The IAB Europe fee (€1,575/yr) applies to being a certified platform, not to using Google Analytics; a client with Google ads needs a certified vendor. One plugin serves both kinds of site. We build `builtin` first and the `external` hook when a client needs it. |
-| D13 *(proposed)* | **A small consent record** for the built-in provider: a POST of (choice, banner version, timestamp) to the site, stored in a table with a random pseudonymous id kept in the consent cookie. | GDPR expects the site to be able to *demonstrate* consent; a cookie on the visitor's device does not. Needs a decision, see Q-D. |
-| D11 | **The plugin provides a "cookie settings" link** that reopens the banner. The **cookie policy page is the site's own content** (the README includes starter wording listing the cookies). | A visitor must be able to withdraw as easily as they gave consent. A policy page is legal copy specific to each client. |
+| D1 | **Tracking providers in v1: `google` (Google Analytics 4) and `umami`.** A provider turns its IDs into its tag. Several can be on at once; a provider is on when its IDs are set. More providers can be added later as classes. | Those are the two in use. |
+| D2 | **Injections: any code a site wants on its pages.** A named list in host config. Each entry is raw HTML (an inline script) or a script URL, with a `position` (`head`, which is rendered **before** the tracking tags, or `body-end`) and an optional `order`. | Google's consent tool is a script Google hosts and you paste into the site, so it is just an injection. Nothing about consent is special-cased. |
+| D3 | **No consent providers and no consent logic in v1.** The plugin does not check whether a consent tool is configured, does not pair providers with consent, and does not hold back tags. | Any such rule assumes how Google or Umami behave today and breaks when they change. (2026-10-03) |
+| D4 | **No custom consent code in v1.** A self-built banner is possible later, as another injection or a provider; not now. | Legal upkeep and proof-of-consent records are not ours to carry yet. |
+| D5 | **Nothing renders unless the host is allowed:** only hosts in `Analytics.hosts` get any output. | Staging (`<client>.tmdapps.dev`) and local development must never send hits; same idea as `Seo.robots.allowHosts`. |
+| D6 | **IDs come from the environment** (`env('GA_MEASUREMENT_ID')`, `env('UMAMI_WEBSITE_ID')`, `env('UMAMI_SRC')`) into the host config. | They differ per environment; the `.env` is the agreed place. |
+| D7 | **Output is the same for every visitor.** No per-visitor or cookie-dependent HTML from the server. | These sites sit behind a CDN and opcache. |
+| D8 | **Injections are host config only**, never read from a database or an admin screen. | They are raw HTML put on every page: they are code, so they belong in version control and review. |
+| D9 | **Responsibility for consent sits with the site, not the plugin**, and the README says so plainly: Google Analytics needs prior consent for visitors in the EU/UK (and notice/opt-out in several US states); the consent script goes in an injection at `position => head`, which renders before the tracking tags. | Follows from D3. |
 
 ## 3. How it works
 
 ```
-page load
-  inline: window.dataLayer, gtag() defined
-  inline: gtag('consent','default', {analytics_storage:'denied', ad_storage:'denied',
-                                     ad_user_data:'denied', ad_personalization:'denied'})
-  read cookie `tmd_consent`
-    "granted"  → loadGa()                (load gtag.js, gtag('js'), gtag('config', ID),
-                                          gtag('consent','update',{analytics_storage:'granted'}))
-    "denied"   → do nothing
-    absent     → show the banner
-
-banner: [Accept] [Reject]   (equal prominence)
-  Accept → set cookie "granted", loadGa(), hide banner
-  Reject → set cookie "denied", hide banner
-
-"cookie settings" link → clear the cookie, show the banner again
-                         (if previously granted: tell GA 'denied' and stop sending)
+layout <head>:   <?= $this->Analytics->head() ?>
+                   1. injections with position "head", sorted by order   (e.g. the consent script)
+                   2. the tag of every enabled tracking provider          (google, umami)
+layout </body>:  <?= $this->Analytics->bodyEnd() ?>
+                   injections with position "body-end"
 ```
 
-The plugin's own cookie (`tmd_consent`) is a first-party, strictly-necessary cookie that only records the
-choice (value, a version number, a timestamp). Its name and lifetime are config.
-
-## 4. Planned shape
-
-- `src/View/Helper/AnalyticsHelper.php`: `tag()` (the consent-default block plus the loader, for the
-  `<head>`), `banner()` (the element, before `</body>`), `settingsLink()` (a link or button for the footer).
-  Each returns an empty string when the plugin is not active for this host (D9).
-- `templates/element/consent_banner.php`: daisyUI markup (`role="dialog"`, `aria-labelledby`, not modal,
-  keyboard reachable) and the inline script. Overridable at
-  `templates/plugin/TheMusicDev/Analytics/element/consent_banner.php`.
-- `config/app_default.php` + `config/bootstrap.php`: the usual plugin-config convention (host wins).
-- Config under `Analytics`:
+Both helper methods return an empty string when the request host is not in `Analytics.hosts` (D5).
 
 ```php
+// config/app.php (host)
 'Analytics' => [
-    'hosts' => ['example.com'],            // only these hosts render anything (D9)
-    'ga' => ['measurementId' => env('GA_MEASUREMENT_ID')],
-    'consent' => [
-        'cookie' => 'tmd_consent',
-        'days' => 365,                      // see question Q-A
-        'text' => '…',                     // banner copy; see question Q-C
-        'policyUrl' => null,                // a router-built URL the host passes in; never typed
+    'hosts' => ['themusicdev.llc'],
+    'tracking' => [
+        'google' => ['measurementId' => env('GA_MEASUREMENT_ID')],
+        'umami' => ['websiteId' => env('UMAMI_WEBSITE_ID'), 'src' => env('UMAMI_SRC')],
+    ],
+    'inject' => [
+        // e.g. Google's consent tool: a script URL from the site's Google account
+        ['position' => 'head', 'order' => 10, 'src' => 'https://…', 'async' => true],
+        ['position' => 'head', 'order' => 20, 'html' => '<script>/* consent-mode defaults */</script>'],
     ],
 ],
 ```
 
-- Tests (in the plugin): the tag and banner are empty off-production or without an ID; the consent default
-  is emitted *before* anything that could load `gtag.js`; `gtag.js` is not present in the HTML (it is loaded by
-  script after consent); the banner has both buttons; overriding the element works. **A manual check in a real
-  browser per site before launch is part of the definition of done** (cookies and network requests before and
-  after Accept), because a silent consent bug is a legal problem, not a cosmetic one.
-- Docs: plugin README (install, configure, the footer link, starter cookie-policy wording), `docs/decisions.md`
-  for build-time notes.
+## 4. Planned shape
 
-## 5. Delivery plan (small)
+- `src/View/Helper/AnalyticsHelper.php`: `head()`, `bodyEnd()`.
+- `src/Provider/` : one small class per tracking provider (`GoogleProvider`, `UmamiProvider`), each with
+  `isEnabled(array $config): bool` and `tag(array $config): string`. Output is escaped properly
+  (IDs are validated against the expected format: `G-` + alphanumerics for Google, a UUID for Umami).
+- `config/app_default.php` + `config/bootstrap.php`: the usual plugin-config convention (host wins).
+- Tests (in the plugin): nothing renders off-production; each provider renders only when its IDs are set; a
+  malformed ID renders nothing; injections come out in `order`, before the tracking tags for `head` and
+  separately for `body-end`; entries with neither `html` nor `src` are ignored; a `src` is HTML-escaped.
+  A manual check in a real browser per site before launch (network requests and cookies) is part of done.
+- Docs: plugin README (install, config, the consent responsibility note, how to add Google's consent tool).
+
+## 5. Delivery plan
 
 | | Feature | Done when |
 |---|---|---|
-| A1 | Plugin skeleton, config, `hosts` and ID gating, `tag()` emitting the consent default | off-production and no-ID render nothing; production renders the default block |
-| A2 | Banner element, cookie, load-on-accept, reject | in a real browser: nothing sent before Accept; Accept loads GA; Reject never does; choice survives reload |
-| A3 | `settingsLink()` and withdraw | link reopens the banner; switching to denied stops hits |
-| A4 | README, cookie-policy wording, wire into the reference app's layout | the reference app shows the banner on the production host only |
+| A1 | Plugin skeleton, config, host gating, `head()` / `bodyEnd()` with injections | off-production renders nothing; injections render in order |
+| A2 | `google` provider | the GA4 tag appears with the configured ID on a production host only |
+| A3 | `umami` provider | the Umami script tag appears with its website ID and source |
+| A4 | README, consent note, wire into the reference app's layout | the reference app shows the tags on the production host only |
 
-## 6. Questions left (small; defaults proposed)
+## 6. To do outside the code (the maintainer)
 
-**Q-D. Keep a consent record (D13)?** It closes the "demonstrate consent" gap but adds a table, an endpoint and a
-retention rule. I propose **yes** for the built-in provider, storing no IP address and no personal data.
-
-**Q-A. How long should the choice be remembered?** I propose **365 days**, then ask again. (Some regulators
-suggest refreshing consent roughly once a year; the cookie lifetime is configurable per site.)
-
-**Q-B. Banner position and style?** I propose a **bottom bar, non-blocking**, daisyUI `card`/`alert` styling
-that follows the site's theme, with "Accept" and "Reject" the same size.
-
-**Q-C. Default wording?** I propose: *"We use cookies to measure how visitors use this site (Google
-Analytics). Nothing is sent until you accept. [Accept] [Reject]"*, with a link to the site's cookie policy
-when `policyUrl` is set. Each site can override the text.
+- Create the Google Analytics 4 property for themusicdev.llc and note the measurement ID.
+- Optional: an AdSense or Ad Manager account, to try Google's consent tool (it is set up there, under
+  Privacy & messaging, "European regulations"). Not confirmed: whether it can be used by a site that runs only
+  Google Analytics, with no ads.
+- Provide the Umami website ID and script URL (already in use on the Astro site).
