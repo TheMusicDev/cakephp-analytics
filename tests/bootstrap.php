@@ -34,6 +34,7 @@ foreach ([TMP, CACHE, LOGS] as $dir) {
 
 require ROOT . '/vendor/autoload.php';
 require CORE_PATH . 'config' . DS . 'bootstrap.php';
+require CAKE . 'functions.php';
 
 Configure::write('App', [
     'namespace' => 'TestApp',

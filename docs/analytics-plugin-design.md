@@ -1,6 +1,6 @@
 # Analytics plugin: design of record
 
-> **Status: designed (revised 2026-10-03), not built.** Composer package `themusicdev/analytics`, GitHub repo
+> **Status: A1–A3 built (2026-10-04), A4 pending; designed 2026-10-03, revised the same day.** Composer package `themusicdev/analytics`, GitHub repo
 > `TheMusicDev/cakephp-analytics`, namespace `TheMusicDev\Analytics`, plugin name `TheMusicDev/Analytics`. This revision replaces the first design (a self-built consent banner,
 > then a "consent provider" abstraction): the maintainer decided on 2026-10-03 that v1 has **no custom consent
 > code and no consent logic**.
