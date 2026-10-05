@@ -5,7 +5,8 @@ namespace TheMusicDev\Analytics\Provider;
 
 /**
  * Umami (cookie-less analytics). Config: `websiteId` (a UUID) and `src` (the https URL of the Umami script,
- * for example `https://cloud.umami.is/script.js` or your own server's `/script.js`).
+ * for example `https://cloud.umami.is/script.js` or your own server's `/script.js`). Env vars: `UMAMI_WEBSITE_ID`,
+ * `UMAMI_SRC`.
  */
 final class UmamiProvider implements ProviderInterface
 {

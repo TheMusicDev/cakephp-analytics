@@ -21,7 +21,7 @@ use TheMusicDev\Analytics\Lib\TagRenderer;
 class AnalyticsHelper extends Helper
 {
     /**
-     * Tracking tags and the `head` injections (a consent tool goes here and comes first).
+     * Tracking tags and the `head` injections (injections come first).
      */
     public function head(): string
     {

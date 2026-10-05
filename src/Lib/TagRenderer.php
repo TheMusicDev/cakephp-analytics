@@ -13,7 +13,7 @@ use TheMusicDev\Analytics\Provider\UmamiProvider;
  * - Nothing is rendered unless the host is in `hosts` (staging and localhost stay out).
  * - `head()` is the injections with position `head`, sorted by `order`, then the tag of every enabled provider.
  * - `bodyEnd()` is the injections with position `body-end`.
- * - The plugin enforces no consent rule: a consent tool goes in `inject` at position `head`, which renders first.
+ * - The plugin enforces no consent rule.
  *
  * Injections are code in the host's config, so a malformed one throws, and it does so before the host check:
  * a typo is caught in development, not first on the production site. Provider IDs usually come from the

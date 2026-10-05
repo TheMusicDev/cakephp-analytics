@@ -11,4 +11,7 @@ use Cake\Core\Configure;
  */
 $existing = (array)Configure::read('Analytics', []);
 $defaults = (require __DIR__ . '/app_default.php')['Analytics'];
-Configure::write('Analytics', $existing + $defaults);
+$merged = $existing + $defaults;
+// `tracking` merges one level deeper: a host that sets `google` keeps the default `umami`, and `false` turns one off.
+$merged['tracking'] = (array)($existing['tracking'] ?? []) + $defaults['tracking'];
+Configure::write('Analytics', $merged);

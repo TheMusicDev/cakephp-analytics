@@ -74,6 +74,19 @@ final class TagRendererTest extends TestCase
         $this->assertStringContainsString('data-website-id', $head);
     }
 
+    public function testAProviderSetToFalseOrNullIsOff(): void
+    {
+        foreach ([false, null] as $off) {
+            $config = $this->config();
+            $config['tracking']['google'] = $off;
+
+            $head = TagRenderer::head($config, 'example.test');
+
+            $this->assertStringNotContainsString('gtag', $head);
+            $this->assertStringContainsString('data-website-id', $head, 'the other provider still renders');
+        }
+    }
+
     public function testAMalformedProviderIdIsNotAnError(): void
     {
         $config = $this->config();
@@ -107,11 +120,11 @@ final class TagRendererTest extends TestCase
 
     public function testAHeadInjectionComesBeforeTheTrackingTags(): void
     {
-        $config = $this->config(['inject' => [['position' => 'head', 'html' => '<script>/* consent */</script>']]]);
+        $config = $this->config(['inject' => [['position' => 'head', 'html' => '<script>/* first */</script>']]]);
 
         $head = TagRenderer::head($config, 'example.test');
 
-        $this->assertLessThan(strpos($head, 'gtag/js'), strpos($head, '/* consent */'), 'the consent tool renders first');
+        $this->assertLessThan(strpos($head, 'gtag/js'), strpos($head, '/* first */'), 'a head injection renders before the tags');
     }
 
     public function testAScriptUrlBecomesAnEscapedScriptTagWithItsAttributes(): void

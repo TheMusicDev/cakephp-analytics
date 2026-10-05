@@ -9,8 +9,13 @@ return [
     'Analytics' => [
         // Only requests for these hosts (no port) render anything. Staging and localhost stay out.
         'hosts' => [],
-        // Tracking providers, each on when its IDs are set (e.g. 'google' => ['measurementId' => '…']).
-        'tracking' => [],
+        // The known tracking providers, each reading its IDs from the environment and on only when they are all set and
+        // well-formed. A host sets one provider's block to override it, or to `false` to turn it off for good; the
+        // other providers keep their defaults.
+        'tracking' => [
+            'google' => ['measurementId' => env('GA_MEASUREMENT_ID')],
+            'umami' => ['websiteId' => env('UMAMI_WEBSITE_ID'), 'src' => env('UMAMI_SRC')],
+        ],
         // Scripts to put on every page: ['position' => 'head'|'body-end', 'order' => int, 'src' => url or 'html' => code].
         'inject' => [],
     ],
