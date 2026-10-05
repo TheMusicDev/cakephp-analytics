@@ -5,7 +5,7 @@ namespace TheMusicDev\Analytics\Provider;
 
 /**
  * Google Analytics 4 (gtag.js). Config: `measurementId` (`G-` plus letters and digits). Consent is not handled
- * here: the site injects a consent tool ahead of this tag when it needs one (see the README).
+ * here (see the README). Env var: `GA_MEASUREMENT_ID`.
  */
 final class GoogleProvider implements ProviderInterface
 {

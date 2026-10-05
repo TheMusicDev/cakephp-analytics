@@ -19,7 +19,7 @@ configured in one place, in the right order. That is all.
 | D3 | **No consent providers and no consent logic in v1.** The plugin does not check whether a consent tool is configured, does not pair providers with consent, and does not hold back tags. | Any such rule assumes how Google or Umami behave today and breaks when they change. (2026-10-03) |
 | D4 | **No custom consent code in v1.** A self-built banner is possible later, as another injection or a provider; not now. | Legal upkeep and proof-of-consent records are not ours to carry yet. |
 | D5 | **Nothing renders unless the host is allowed:** only hosts in `Analytics.hosts` get any output. | Staging (`<client>.tmdapps.dev`) and local development must never send hits; same idea as `Seo.robots.allowHosts`. |
-| D6 | **IDs come from the environment** (`env('GA_MEASUREMENT_ID')`, `env('UMAMI_WEBSITE_ID')`, `env('UMAMI_SRC')`) into the host config. | They differ per environment; the `.env` is the agreed place. |
+| D6 | **Known providers read their IDs from the environment by default** (`GA_MEASUREMENT_ID`, `UMAMI_WEBSITE_ID`, `UMAMI_SRC`): the defaults in `config/app_default.php` are `env()` calls, so the host config needs only `hosts`. The host can override a provider's block or set it to `false`; `tracking` merges one level deep so overriding one keeps the others. (Changed 2026-10-05; before, every host wrote the `env()` calls itself.) The env vars never open a host (D5). Naming rule for new providers: `<PROVIDER>_<THING>`. | They differ per environment; the `.env` is the agreed place, and every site was writing the same three lines. |
 | D7 | **Output is the same for every visitor.** No per-visitor or cookie-dependent HTML from the server. | These sites sit behind a CDN and opcache. |
 | D8 | **Injections are host config only**, never read from a database or an admin screen. | They are raw HTML put on every page: they are code, so they belong in version control and review. |
 | D9 | **Responsibility for consent sits with the site, not the plugin**, and the README says so plainly: Google Analytics needs prior consent for visitors in the EU/UK (and notice/opt-out in several US states); the consent script goes in an injection at `position => head`, which renders before the tracking tags. | Follows from D3. |
@@ -40,10 +40,7 @@ Both helper methods return an empty string when the request host is not in `Anal
 // config/app.php (host)
 'Analytics' => [
     'hosts' => ['themusicdev.llc'],
-    'tracking' => [
-        'google' => ['measurementId' => env('GA_MEASUREMENT_ID')],
-        'umami' => ['websiteId' => env('UMAMI_WEBSITE_ID'), 'src' => env('UMAMI_SRC')],
-    ],
+    // no 'tracking': the known providers read GA_MEASUREMENT_ID / UMAMI_WEBSITE_ID / UMAMI_SRC themselves (D6)
     'inject' => [
         // e.g. Google's consent tool: a script URL from the site's Google account
         ['position' => 'head', 'order' => 10, 'src' => 'https://…', 'async' => true],
@@ -63,7 +60,7 @@ Both helper methods return an empty string when the request host is not in `Anal
   malformed ID renders nothing; injections come out in `order`, before the tracking tags for `head` and
   separately for `body-end`; entries with neither `html` nor `src` are ignored; a `src` is HTML-escaped.
   A manual check in a real browser per site before launch (network requests and cookies) is part of done.
-- Docs: plugin README (install, config, the consent responsibility note, how to add Google's consent tool).
+- Docs: plugin README (install, config, the env-driven providers, the consent responsibility note).
 
 ## 5. Delivery plan
 
